@@ -1,2 +1,2 @@
 # asterocrash
-Asteroid remake in ocaml for school
+Asteroid remake in ocaml for school !
