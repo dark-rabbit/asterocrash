@@ -112,7 +112,7 @@ let etat_suivant etat = etat;; (* A REDEFINIR *)
 (* fonctions d'affichage du vaisseau, d'un asteroide, etc. *)
 
 let affiche_etat etat = 
-    draw_poly etat.player.vertices;; (* A REDEFINIR *)
+    draw_poly etat.player.vertices;; (* on dessine le vaisseau *)
 
 (* --- boucle d'interaction --- *)
 
