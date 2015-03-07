@@ -55,11 +55,12 @@ type asteroid = {
      * dans le jeu original, les asteroides sont des polygones generes aleatoirement
      * donc a voir
      *)
-    x : mutable float;
-    y : mutable float;
+    mutable x : float;
+    mutable y : float;
+    angle : float;
     r : float;
-    speedx : mutable float;
-    speedy : mutable float
+    speedX : float;
+    speedY : float
 };;
 
 (* A DEFINIR : positions, deplacements, etc. *)
@@ -114,7 +115,17 @@ let rotation_droite etat =
     etat;;
 
 (* tir d'un nouveau projectile *)
-let tir etat = etat;; (* A REDEFINIR *)
+let tir etat =
+    let laser0 = {
+        x = etat.player.x;
+        y = etat.player.y;
+        angle = etat.player.angle;
+        speedX = 10 *. cos(etat.player.angle);
+        speedY = 10 *. sin(etat.player.angle);
+        vertices = Array.make 2 (0, 0)
+    } :: etat.lasers in
+    etat;;
+(* je ne pense pas que ca fonctionne *)
 
 (* calcul de l'etat suivant, apres un pas de temps *)
 let etat_suivant etat =
@@ -127,6 +138,9 @@ let etat_suivant etat =
     if etat.player.x > float_of_int(width) then etat.player.x <- 0.;
     if etat.player.y < 0. then etat.player.y <- float_of_int(height);
     if etat.player.y > float_of_int(height) then etat.player.y <- 0.;
+
+    (* les lasers bougent, et sont supprimes si ils sortent de l'ecran *)
+    
 
     etat;;
 
