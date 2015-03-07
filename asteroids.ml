@@ -12,9 +12,9 @@ let pi = 3.14;;
 
 type spaceship = {
 
-    x : float; y : float;   (* les coordonnees du centre de rotation du vaisseau *)
-    angle : float;          (* l'angle du vaisseau en radiants *)
-    speed : float * float;  (* la vitesse pour deplacements et anticipation des collisions *)
+    mutable x : float; mutable y : float; (* les coordonnees du centre de rotation du vaisseau *)
+    mutable angle : float; (* l'angle du vaisseau en radiants *)
+    mutable speedX : float; mutable speedY : float; (* la vitesse pour deplacements et anticipation des collisions *)
 
     (* on utilise des float pour les calculs, on convertit en int pour l'affichage, cf ci-dessous *)
 
@@ -37,7 +37,7 @@ let refreshShipVertices spaceship =
 type laser = {
     vertices : (int * int) array;
     speed : int * int
-}
+};;
 
 type asteroidCategory = Big | Medium | Small;;
 
@@ -79,7 +79,8 @@ let player0 = {
     x = float_of_int (width / 2);
     y = float_of_int (height / 2);
     angle = pi /. 2.;
-    speed = (0., 0.);
+    speedX = 0.;
+    speedY = 0.;
     vertices = Array.make 3 (0,0)
 };;
 refreshShipVertices player0;;
@@ -94,17 +95,36 @@ let init_etat () =
 (* --- changements d'etat --- *)
 
 (* acceleration du vaisseau *)
-let acceleration etat = etat;; (* A REDEFINIR *)
+let acceleration etat =
+    etat.player.speedX <- etat.player.speedX +. 1. *. cos(etat.player.angle);
+    etat.player.speedY <- etat.player.speedY +. 1. *. sin(etat.player.angle);
+    etat;;
 
 (* rotation vers la gauche et vers la droite du vaisseau *)
-let rotation_gauche etat = etat;; (* A REDEFINIR *)
-let rotation_droite etat = etat;; (* A REDEFINIR *)
+let rotation_gauche etat = 
+    etat.player.angle <- etat.player.angle +. 0.2;
+    etat;;
+
+let rotation_droite etat =
+    etat.player.angle <- etat.player.angle -. 0.2;
+    etat;;
 
 (* tir d'un nouveau projectile *)
 let tir etat = etat;; (* A REDEFINIR *)
 
 (* calcul de l'etat suivant, apres un pas de temps *)
-let etat_suivant etat = etat;; (* A REDEFINIR *)
+let etat_suivant etat =
+
+    (* deplacement du vaisseau *)
+    etat.player.x <- etat.player.x +. etat.player.speedX;
+    etat.player.y <- etat.player.y +. etat.player.speedY;
+    (* si le vaisseau sort de l'ecran, on le met de l'autre cote *)
+    if etat.player.x < 0. then etat.player.x <- float_of_int(width);
+    if etat.player.x > float_of_int(width) then etat.player.x <- 0.;
+    if etat.player.y < 0. then etat.player.y <- float_of_int(height);
+    if etat.player.y > float_of_int(height) then etat.player.y <- 0.;
+
+    etat;;
 
 
 (* --- affichages graphiques --- *)
@@ -112,7 +132,15 @@ let etat_suivant etat = etat;; (* A REDEFINIR *)
 (* fonctions d'affichage du vaisseau, d'un asteroide, etc. *)
 
 let affiche_etat etat = 
-    draw_poly etat.player.vertices;; (* on dessine le vaisseau *)
+
+    (* background *)
+    set_color black;
+    fill_rect 0 0 width height;
+
+    (* spaceship *)
+    set_color white;
+    refreshShipVertices etat.player;
+    fill_poly etat.player.vertices;; (* on dessine le vaisseau *)
 
 (* --- boucle d'interaction --- *)
 
