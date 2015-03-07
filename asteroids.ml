@@ -33,17 +33,21 @@ let refreshShipVertices spaceship =
     v.(1) <- (int_of_float(x +. 10. *. cos(a -. pi/.2.)), int_of_float(y +. 10. *. sin(a -. pi/.2.)));
     v.(2) <- (int_of_float(x +. 10. *. cos(a +. pi/.2.)), int_of_float(y +. 10. *. sin(a +. pi/.2.)));;
 
-(* pour les lasers, on fait des petits cercles ou des segments ? *)
 type laser = {
+
+    mutable x : float;
+    mutable y : float;
+    angle : float;
+    speedX : float;
+    speedY : float;
     vertices : (int * int) array;
-    speed : int * int
 };;
 
 type asteroidCategory = Big | Medium | Small;;
 
 type asteroid = {
 
-    (* la dimension et le comportement de l'asteroide en cas de collision va changer suivant sa categorie *)
+    (* la dimension, la vitesse et le comportement de l'asteroide en cas de collision va changer suivant sa categorie *)
     category : asteroidCategory;
 
     (*
