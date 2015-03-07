@@ -51,11 +51,11 @@ type asteroid = {
      * dans le jeu original, les asteroides sont des polygones generes aleatoirement
      * donc a voir
      *)
-    x : int;
-    y : int;
-    r : int;
-
-    speed : int * int
+    x : mutable float;
+    y : mutable float;
+    r : float;
+    speedx : mutable float;
+    speedy : mutable float
 };;
 
 (* A DEFINIR : positions, deplacements, etc. *)
