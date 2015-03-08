@@ -12,9 +12,11 @@ let pi = 3.14;;
 
 type spaceship = {
 
-    mutable x : float; mutable y : float; (* les coordonnees du centre de rotation du vaisseau *)
+    mutable x : float;
+    mutable y : float; (* les coordonnees du centre de rotation du vaisseau *)
     mutable angle : float; (* l'angle du vaisseau en radiants *)
-    mutable speedX : float; mutable speedY : float; (* la vitesse pour deplacements et anticipation des collisions *)
+    mutable speedX : float;
+    mutable speedY : float; (* la vitesse pour deplacements et anticipation des collisions *)
 
     (* on utilise des float pour les calculs, on convertit en int pour l'affichage, cf ci-dessous *)
 
@@ -34,14 +36,21 @@ let refreshShipVertices spaceship =
     v.(2) <- (int_of_float(x +. 10. *. cos(a +. pi/.2.)), int_of_float(y +. 10. *. sin(a +. pi/.2.)));;
 
 type laser = {
-
     mutable x : float;
     mutable y : float;
     angle : float;
     speedX : float;
     speedY : float;
-    vertices : (int * int) array;
+    points : (int * int) array;
 };;
+
+let refreshLaserVertices laser = 
+    let x = laser.x
+    and y = laser.y
+    and a = laser.angle
+    and v = laser.points in
+    v.(0) <- (int_of_float(x), int_of_float(y));
+    v.(1) <- (int_of_float(x +. 5. *. cos(a)), int_of_float(y +. 5. *. sin(a)));
 
 type asteroidCategory = Big | Medium | Small;;
 
@@ -72,8 +81,8 @@ type etat = {
      * ainsi que deux listes dynamiques pour les asteroides et les lasers
      *)
     player : spaceship;
-    lasers : laser list;
-    asteroids : asteroid list
+    mutable lasers : laser list;
+    mutable asteroids : asteroid list
 };;
 
 (* --- initialisations etat --- *)
@@ -120,10 +129,10 @@ let tir etat =
         x = etat.player.x;
         y = etat.player.y;
         angle = etat.player.angle;
-        speedX = 10 *. cos(etat.player.angle);
-        speedY = 10 *. sin(etat.player.angle);
-        vertices = Array.make 2 (0, 0)
-    } :: etat.lasers in
+        speedX = 10. *. cos(etat.player.angle);
+        speedY = 10. *. sin(etat.player.angle);
+        points = Array.make 2 (0, 0)
+    } in etat.lasers <- laser0 :: etat.lasers;
     etat;;
 (* je ne pense pas que ca fonctionne *)
 
@@ -140,10 +149,14 @@ let etat_suivant etat =
     if etat.player.y > float_of_int(height) then etat.player.y <- 0.;
 
     (* les lasers bougent, et sont supprimes si ils sortent de l'ecran *)
-    
-
+    let moveLaser (laser : laser) = 
+        laser.x <- laser.x +. laser.speedX;
+        laser.y <- laser.y +. laser.speedY in
+    List.iter moveLaser etat.lasers;
+    etat.lasers <- List.filter
+        (fun (l : laser) -> l.x > 0. || l.y > 0. || l.x < float_of_int(width) || l.y < float_of_int(height))
+        etat.lasers;
     etat;;
-
 
 (* --- affichages graphiques --- *)
 
@@ -158,7 +171,13 @@ let affiche_etat etat =
     (* spaceship *)
     set_color white;
     refreshShipVertices etat.player;
-    fill_poly etat.player.vertices;; (* on dessine le vaisseau *)
+    fill_poly etat.player.vertices; (* on dessine le vaisseau *)
+
+    (* lasers *)
+    List.iter refreshLaserVertices etat.lasers;
+    let draw_laser laser =
+        draw_poly laser.points in
+    List.iter draw_laser etat.lasers;;
 
 (* --- boucle d'interaction --- *)
 
