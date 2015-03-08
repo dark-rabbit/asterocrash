@@ -1,4 +1,5 @@
-
+open List;;
+open Printf;;
 open Graphics;;
 
 (* constantes et parametres *)
@@ -154,8 +155,9 @@ let etat_suivant etat =
         laser.y <- laser.y +. laser.speedY in
     List.iter moveLaser etat.lasers;
     etat.lasers <- List.filter
-        (fun (l : laser) -> l.x > 0. || l.y > 0. || l.x < float_of_int(width) || l.y < float_of_int(height))
+        (fun (l : laser) -> l.x > 0. && l.y > 0. && l.x < float_of_int(width) && l.y < float_of_int(height))
         etat.lasers;
+    print_int (length (etat.lasers));
     etat;;
 
 (* --- affichages graphiques --- *)
