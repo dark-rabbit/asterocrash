@@ -1,5 +1,3 @@
-open List;;
-open Printf;;
 open Graphics;;
 
 (* constantes et parametres *)
@@ -143,21 +141,25 @@ let etat_suivant etat =
     (* deplacement du vaisseau *)
     etat.player.x <- etat.player.x +. etat.player.speedX;
     etat.player.y <- etat.player.y +. etat.player.speedY;
+
     (* si le vaisseau sort de l'ecran, on le met de l'autre cote *)
     if etat.player.x < 0. then etat.player.x <- float_of_int(width);
     if etat.player.x > float_of_int(width) then etat.player.x <- 0.;
     if etat.player.y < 0. then etat.player.y <- float_of_int(height);
     if etat.player.y > float_of_int(height) then etat.player.y <- 0.;
 
-    (* les lasers bougent, et sont supprimes si ils sortent de l'ecran *)
+    (* les lasers bougent *)
     let moveLaser (laser : laser) = 
         laser.x <- laser.x +. laser.speedX;
         laser.y <- laser.y +. laser.speedY in
     List.iter moveLaser etat.lasers;
+
+    (* filtrage de liste pour jarter les lasers disparus et eviter une fuite memoire *)
     etat.lasers <- List.filter
         (fun (l : laser) -> l.x > 0. && l.y > 0. && l.x < float_of_int(width) && l.y < float_of_int(height))
         etat.lasers;
-    print_int (length (etat.lasers));
+
+    (* enfin, on envoie le nouvel etat *)
     etat;;
 
 (* --- affichages graphiques --- *)
