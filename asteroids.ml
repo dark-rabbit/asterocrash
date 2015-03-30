@@ -6,69 +6,83 @@ open Graphics;;
 let width = 1000;;
 let height = 600;;
 let pi = 3.14;;
+let laser_speed = 10.;;
+let laser_size = 5.;;
+let safe_distance = 150.;;
+let asteroids_speedcap = 5.;;
+let asteroids_initial_numbercap = 5;;
 
 (* --- definition types pour etat du jeu --- *)
 
+(* on utilise des float pour les calculs, on convertit en int pour l'affichage, cf ci-dessous *)
+
+(* les vecteurs de deplacement *)
+type movement = {
+
+  (* coordonnes (x,y) du point d'origine *)
+  mutable x : float;
+  mutable y : float;
+  (* direction du vecteur en radians *)
+  mutable angle : float;
+  (* norme du vecteur selon les axes x et y *)
+  mutable speedX : float;
+  mutable speedY : float
+
+};;
+
 type spaceship = {
 
-    mutable x : float;
-    mutable y : float; (* les coordonnees du centre de rotation du vaisseau *)
-    mutable angle : float; (* l'angle du vaisseau en radiants *)
-    mutable speedX : float;
-    mutable speedY : float; (* la vitesse pour deplacements et anticipation des collisions *)
-
-    (* on utilise des float pour les calculs, on convertit en int pour l'affichage, cf ci-dessous *)
-
-    (* les points (calcules en fonction de center et rotation) du triangle qu'on va dessiner avec draw_poly *)
+    (* vecteur deplacement du vaisseau *)
+    ship_movement : movement;
+    (* les points (calcules en fonction de centre de rotation) du triangle qu'on va dessiner avec draw_poly *)
     vertices : (int * int) array
 };;
 
-(* fonction de calcul des vertices, ca trace un triangle avec l'appel de draw_poly sur vertices *)
-(* dimensions (10 et 20) a revoir ! *)
+(* fonction de calcul des vertices, les trois points du triangle *)
 let refreshShipVertices spaceship =
-    let x = spaceship.x
-    and y = spaceship.y
-    and a = spaceship.angle
+    let x = spaceship.ship_movement.x
+    and y = spaceship.ship_movement.y
+    and a = spaceship.ship_movement.angle
     and v = spaceship.vertices in
     v.(0) <- (int_of_float(x +. 20. *. cos(a)), int_of_float(y +. 20. *. sin(a)));
     v.(1) <- (int_of_float(x +. 10. *. cos(a -. pi/.2.)), int_of_float(y +. 10. *. sin(a -. pi/.2.)));
     v.(2) <- (int_of_float(x +. 10. *. cos(a +. pi/.2.)), int_of_float(y +. 10. *. sin(a +. pi/.2.)));;
 
 type laser = {
-    mutable x : float;
-    mutable y : float;
-    angle : float;
-    speedX : float;
-    speedY : float;
+    
+    (* vecteur deplacement du laser *)
+    laser_movement : movement;
+    (* les points constituant le laser pour le trace *)
     points : (int * int) array;
+
 };;
 
+(* fonction de calcul des vertices du laser *)
 let refreshLaserVertices laser = 
-    let x = laser.x
-    and y = laser.y
-    and a = laser.angle
+    let x = laser.laser_movement.x
+    and y = laser.laser_movement.y
+    and a = laser.laser_movement.angle
     and v = laser.points in
     v.(0) <- (int_of_float(x), int_of_float(y));
-    v.(1) <- (int_of_float(x +. 5. *. cos(a)), int_of_float(y +. 5. *. sin(a)));
+    v.(1) <- (int_of_float(x +. laser_size *. cos(a)), int_of_float(y +. laser_size *. sin(a)));
 
 type asteroidCategory = Big | Medium | Small;;
 
+(* retourne le rayon de l'asteroide selon sa categorie *)
+let asteroid_size category = match category with
+  | Small -> 15
+  | Medium -> 40
+  | Big -> 60;;
+
 type asteroid = {
 
-    (* la dimension, la vitesse et le comportement de l'asteroide en cas de collision va changer suivant sa categorie *)
+    (* la dimension et le comportement de l'asteroide en cas de collision va changer suivant sa categorie *)
     category : asteroidCategory;
+    (* vecteur deplacement de l'asteroide *)
+    asteroid_movement : movement;
+    (* couleur de l'asteroide *)
+    couleur : color
 
-    (*
-     * les trois parametres de la fonction draw_circle
-     * dans le jeu original, les asteroides sont des polygones generes aleatoirement
-     * donc a voir
-     *)
-    mutable x : float;
-    mutable y : float;
-    angle : float;
-    r : float;
-    speedX : float;
-    speedY : float
 };;
 
 (* A DEFINIR : positions, deplacements, etc. *)
@@ -82,6 +96,7 @@ type etat = {
     player : spaceship;
     mutable lasers : laser list;
     mutable asteroids : asteroid list
+
 };;
 
 (* --- initialisations etat --- *)
@@ -89,75 +104,236 @@ type etat = {
 (* A DEFINIR : generation positions, deplacements initiaux ... *)
 
 let player0 = {
-    x = float_of_int (width / 2);
-    y = float_of_int (height / 2);
-    angle = pi /. 2.;
-    speedX = 0.;
-    speedY = 0.;
+    ship_movement = {
+      x = float_of_int (width / 2);
+      y = float_of_int (height / 2);
+      angle = pi /. 2.;
+      speedX = 0.;
+      speedY = 0.;
+    };
     vertices = Array.make 3 (0,0)
 };;
+
 refreshShipVertices player0;;
+
+(* genere des coordonnes aleatoires pour un asteroide, suffisamment espacees du vaisseau *)
+let rec random_coords player =
+  let mov = player.ship_movement
+  and new_x = float_of_int (Random.int width)
+  and new_y = float_of_int (Random.int height) in
+  if (new_x > mov.x -. safe_distance && new_x < mov.x +. safe_distance
+	&& new_y > mov.y -. safe_distance && new_y < mov.x +. safe_distance)
+  then random_coords player
+  else (new_x, new_y);;
+
+(* genere un vecteur de deplacement aleatoire pour un asteroide *)
+let random_movement player =
+  let pt = random_coords player
+  and dir = Random.float pi *. 2.
+  and speed = Random.float asteroids_speedcap in
+  {
+    x = fst pt;
+    y = snd pt;
+    angle = dir;
+    speedX = speed *. cos(dir);
+    speedY = speed *. sin(dir)
+  };;
+
+(* genere un vecteur de deplacement aleatoire avec une origine fixee
+   pour un fragment d'asteroide *)
+let random_movement_from_position pt_x pt_y =
+  let speed = Random.float asteroids_speedcap 
+  and dir = Random.float pi *. 2. in
+  {
+    x = pt_x;
+    y = pt_y;
+    angle = dir;
+    speedX = speed *. cos(dir);
+    speedY = speed *. sin(dir)
+  };;
+
+(* donne la categorie d'un asteroide a parti de son code entier *)
+let asteroid_category code = match code with
+    | 0 -> Small
+    | 1 -> Medium
+    | _ -> Big;;
+
+(* genere une couleur aleatoire pour un asteroide *)
+let random_color () =
+  rgb (Random.int 255) (Random.int 255) (Random.int 255);;
+
+(* cree un nouvel asteroide de direction et vitesse aleatoires *)
+let create_asteroid size mov color =
+  let new_asteroid = {
+    category = asteroid_category size;
+    asteroid_movement = mov;
+    couleur = color
+  } in
+  new_asteroid;;
+
+(* initialisation des asteroides *)
+let init_asteroids etat =
+  for i=1 to ((Random.int 3)+2) do
+    etat.asteroids <- (create_asteroid 2 (random_movement etat.player) (random_color ())) :: etat.asteroids
+  done;
+  for i=1 to ((Random.int 3)+2) do
+    etat.asteroids <- (create_asteroid 1 (random_movement etat.player) (random_color ())) :: etat.asteroids
+  done;
+  etat;;
+
+(* creer 2 ou 3 fragments d'asteroides a partir d'un asteroide *)
+let fragment_asteroid asteroid etat =
+  let size = match asteroid.category with
+    | Big -> 1
+    | Medium -> 0
+    | _ -> failwith "Impossible de fragmenter un asteroide de taille minimale !" in
+  for i=1 to ((Random.int 1) + 2) do
+    etat.asteroids <- (create_asteroid size 
+			               (random_movement_from_position (asteroid.asteroid_movement.x)
+				                                      (asteroid.asteroid_movement.y))
+			               asteroid.couleur) :: etat.asteroids
+  done;;
 
 let init_etat () = 
     let etat = {
         player = player0;
         lasers = [];
         asteroids = []
-} in etat;;
+    } in
+    init_asteroids etat;;
 
 (* --- changements d'etat --- *)
 
 (* acceleration du vaisseau *)
 let acceleration etat =
-    etat.player.speedX <- etat.player.speedX +. 1. *. cos(etat.player.angle);
-    etat.player.speedY <- etat.player.speedY +. 1. *. sin(etat.player.angle);
+  let mov = etat.player.ship_movement in
+    mov.speedX <- mov.speedX +. 1. *. cos(mov.angle);
+    mov.speedY <- mov.speedY +. 1. *. sin(mov.angle);
     etat;;
 
 (* rotation vers la gauche et vers la droite du vaisseau *)
 let rotation_gauche etat = 
-    etat.player.angle <- etat.player.angle +. 0.2;
+  let mov = etat.player.ship_movement in
+    mov.angle <- mov.angle +. 0.2;
     etat;;
 
 let rotation_droite etat =
-    etat.player.angle <- etat.player.angle -. 0.2;
+  let mov = etat.player.ship_movement in
+    mov.angle <- mov.angle -. 0.2;
     etat;;
 
 (* tir d'un nouveau projectile *)
 let tir etat =
+  let mov = etat.player.ship_movement in
     let laser0 = {
-        x = etat.player.x;
-        y = etat.player.y;
-        angle = etat.player.angle;
-        speedX = 10. *. cos(etat.player.angle);
-        speedY = 10. *. sin(etat.player.angle);
+        laser_movement = {
+	  x = mov.x;
+          y = mov.y;
+          angle = mov.angle;
+          speedX = laser_speed *. cos(mov.angle);
+          speedY = laser_speed *. sin(mov.angle);
+	};
         points = Array.make 2 (0, 0)
     } in etat.lasers <- laser0 :: etat.lasers;
     etat;;
-(* je ne pense pas que ca fonctionne *)
+
+(* calculer les nouvelles coordonnes du point origine d'un vecteur
+   deplacement a l'instant suivant.
+   Si las est a false, il s'agit du deplacement du vaisseau ou d'un
+   asteroide, dans ce cas reinitialiser la coordonnee necessaire en cas
+   de sortie d'ecran *)
+let move movement las =
+  movement.x <- movement.x +. movement.speedX;
+  movement.y <- movement.y +. movement.speedY;
+  if not(las) then
+    if movement.x < 0. then movement.x <- float_of_int(width);
+    if movement.x > float_of_int(width) then movement.x <- 0.;
+    if movement.y < 0. then movement.y <- float_of_int(height);
+    if movement.y > float_of_int(height) then movement.y <- 0.;;
+
+(* verifie si un point appartient au disque (asteroide)
+   fonction de type (int * int) -> asteroid -> bool *)
+let point_in_asteroid point asteroid =
+  let pt_x = float_of_int (fst point)
+  and pt_y = float_of_int (snd point)
+  and c_x = asteroid.asteroid_movement.x
+  and c_y = asteroid.asteroid_movement.y in
+  (* calcule la distance du point au centre de l'asteroide et la compare au rayon *)
+  sqrt (((max c_x pt_x) -. (min c_x pt_x))**2. +. ((max c_y pt_y) -. (min c_y pt_y))**2.)
+  <= float_of_int(asteroid_size(asteroid.category));;
+
+(* verifie si un asteroide est touche par un laser existant
+   si oui, modifie les coordonnees du laser pour future suppression et rend vrai *)
+let rec detect_collisions_las_ast asteroid lasers =
+  match lasers with
+  | [] -> false
+  | l::r -> if (point_in_asteroid (l.points.(1)) asteroid)
+    then 
+      begin
+	l.laser_movement.x <- -1.;
+	sound 440 500;
+        true
+      end 
+    else (detect_collisions_las_ast asteroid r);;
+
+(* gestion des collisions asteroide-laser, supprime les asteroides touches de la liste,
+   les fragmente s'ils ne sont pas de taille minimale et supprime les lasers responsables *)
+let collisions_las_ast etat =
+  (* construit une paire de listes (l1 * l2)
+     l1 -> liste des asteroides touches
+     l2 -> liste des asteroides non touches *)
+  let hit_orNot = List.partition (fun (a : asteroid) -> (detect_collisions_las_ast a etat.lasers))
+                                 etat.asteroids in
+  (* Supprimer les asteroides touches *)
+  etat.asteroids <- (snd hit_orNot);
+  (* Fragmenter les asteroides touches *)
+  List.iter (fun (a : asteroid) -> if a.category != Small then (fragment_asteroid a etat)) (fst hit_orNot);
+  (* Supprimer les lasers responsables *)
+  etat.lasers <- List.filter (fun (l : laser) -> l.laser_movement.x >= 0.) etat.lasers;;
+  
+(* detection d'un collision vaisseau-asteroide, quitte le jeu s'il y en a *)
+let collisions_ship_ast ship asteroid =
+  let vertices = ship.vertices in
+  if ((point_in_asteroid vertices.(0) asteroid)
+	 || (point_in_asteroid vertices.(1) asteroid)
+	 || (point_in_asteroid vertices.(2) asteroid))
+  then 
+    begin
+      print_endline "Game Over, you lose !";
+      exit 0
+    end;;
 
 (* calcul de l'etat suivant, apres un pas de temps *)
 let etat_suivant etat =
+  let ship_mov = etat.player.ship_movement in
 
     (* deplacement du vaisseau *)
-    etat.player.x <- etat.player.x +. etat.player.speedX;
-    etat.player.y <- etat.player.y +. etat.player.speedY;
+    move ship_mov false;
 
-    (* si le vaisseau sort de l'ecran, on le met de l'autre cote *)
-    if etat.player.x < 0. then etat.player.x <- float_of_int(width);
-    if etat.player.x > float_of_int(width) then etat.player.x <- 0.;
-    if etat.player.y < 0. then etat.player.y <- float_of_int(height);
-    if etat.player.y > float_of_int(height) then etat.player.y <- 0.;
-
-    (* les lasers bougent *)
-    let moveLaser (laser : laser) = 
-        laser.x <- laser.x +. laser.speedX;
-        laser.y <- laser.y +. laser.speedY in
-    List.iter moveLaser etat.lasers;
-
+    (* deplacement des lasers *)
+    List.iter (fun (l : laser) -> move l.laser_movement true) etat.lasers;
     (* filtrage de liste pour jarter les lasers disparus et eviter une fuite memoire *)
     etat.lasers <- List.filter
-        (fun (l : laser) -> l.x > 0. && l.y > 0. && l.x < float_of_int(width) && l.y < float_of_int(height))
+        (fun (l : laser) -> l.laser_movement.x > 0. && l.laser_movement.y > 0.
+	  && l.laser_movement.x < float_of_int(width) && l.laser_movement.y < float_of_int(height))
         etat.lasers;
+
+    (* deplacement des asteroides *)
+    List.iter (fun (a : asteroid) -> move a.asteroid_movement false) etat.asteroids;
+
+    (* detection et traitement des collisions laser-asteroides *)
+    collisions_las_ast etat;
+
+    (* detection de la fin du jeu *)
+    if etat.asteroids = []
+    then
+      begin
+	print_endline "Victory ! Congratulations !";
+	exit 0
+      end;
+
+    (* detection des collisions vaisseau-asteroides *)
+    List.iter (fun (a : asteroid) -> (collisions_ship_ast etat.player a)) etat.asteroids;
 
     (* enfin, on envoie le nouvel etat *)
     etat;;
@@ -181,7 +357,15 @@ let affiche_etat etat =
     List.iter refreshLaserVertices etat.lasers;
     let draw_laser laser =
         draw_poly laser.points in
-    List.iter draw_laser etat.lasers;;
+    List.iter draw_laser etat.lasers;
+    
+    (* asteroides *)
+    let draw_asteroid asteroid =
+      set_color asteroid.couleur;
+      fill_circle (int_of_float(asteroid.asteroid_movement.x))
+	          (int_of_float(asteroid.asteroid_movement.y))
+	          (asteroid_size asteroid.category) in
+    List.iter draw_asteroid etat.asteroids;;
 
 (* --- boucle d'interaction --- *)
 
