@@ -7,9 +7,3 @@ To test, install ocaml, then run :
 **$ make asteroids**
 
 **$ ./asteroids**
-
-For the version corresponding to branch new :
-
-**$ ocamlc -thread graphics.cma unix.cma asteroids2.ml -o asteroids2**
-
-**$ ./asteroids2**
